@@ -1,0 +1,7 @@
+﻿/build/
+**/build/
+*.a
+*.exe
+.ninja_*
+CMakeCache.txt
+CMakeFiles/

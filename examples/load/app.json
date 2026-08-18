@@ -1,0 +1,29 @@
+{
+  "name": "load",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "rigAssimp hero — STL + OBJ into CMesh via Assimp, present with rigRender3D",
+  "window": { "width": 800, "height": 600, "title": "rigAssimp — load" },
+  "dependencies": [
+    {
+      "name": "rigComponent",
+      "url": "https://github.com/rigkid/rigComponent.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigSystems",
+      "url": "https://github.com/rigkid/rigSystems.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigRender3D",
+      "url": "https://github.com/rigkid/rigRender3D.git",
+      "ref": "main"
+    },
+    {
+      "name": "rigAssimp",
+      "url": "https://github.com/rigkid/rigAssimp.git",
+      "ref": "main"
+    }
+  ]
+}
