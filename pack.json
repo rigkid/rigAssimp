@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "Rigkid",
   "license": "MIT Rigkid Contributors",
-  "description": "Optional Assimp multi-format mesh load into CMesh. Leaf pack — nothing in Kit depends on it.",
+  "description": "Optional Assimp multi-format mesh load into CMesh. Leaf pack - nothing in Kit depends on it.",
   "dependencies": [
     "rigComponent"
   ],

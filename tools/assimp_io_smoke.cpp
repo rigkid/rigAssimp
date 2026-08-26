@@ -18,6 +18,11 @@ int main(int argc, char** argv) {
 		return 2;
 	}
 
+	if (!rig::assimp::isSupportedPath(path)) {
+		std::fprintf(stderr, "unsupported extension (%s)\n", path);
+		return 1;
+	}
+
 	rigkit::ecs::CMesh mesh;
 	const auto r = rig::assimp::load(path, mesh);
 	if (!r.ok) {

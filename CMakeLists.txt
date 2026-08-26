@@ -92,4 +92,4 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/tools/assimp_io_smoke.cpp")
 		RIGASSIMP_SAMPLE_STL="${CMAKE_CURRENT_LIST_DIR}/examples/load/data/prism.stl")
 endif()
 
-message(STATUS "Configured pack: ${PACK_NAME} (optional Assimp IO — leaf; nothing depends on it)")
+message(STATUS "Configured pack: ${PACK_NAME} (optional Assimp IO - leaf; nothing depends on it)")

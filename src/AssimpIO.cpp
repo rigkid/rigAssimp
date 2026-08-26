@@ -6,7 +6,9 @@
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <cctype>
 #include <cstdio>
+#include <filesystem>
 
 namespace rig {
 namespace assimp {
@@ -120,6 +122,45 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 		result.warning = buf;
 	}
 	return result;
+}
+
+std::vector<std::string> supportedExtensions() {
+	Assimp::Importer importer;
+	aiString list;
+	importer.GetExtensionList(list);
+	std::vector<std::string> out;
+	const std::string raw = list.C_Str();
+	size_t start = 0;
+	while (start < raw.size()) {
+		size_t end = raw.find(';', start);
+		if (end == std::string::npos) {
+			end = raw.size();
+		}
+		std::string token = raw.substr(start, end - start);
+		while (!token.empty() && (token.front() == ' ' || token.front() == '*')) {
+			token.erase(token.begin());
+		}
+		while (!token.empty() && token.front() == '.') {
+			token.erase(token.begin());
+		}
+		for (char& c : token) {
+			c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+		}
+		if (!token.empty()) {
+			out.push_back(std::move(token));
+		}
+		start = end + 1;
+	}
+	return out;
+}
+
+bool isSupportedPath(const std::string& path) {
+	const auto ext = std::filesystem::path(path).extension().string();
+	if (ext.empty()) {
+		return false;
+	}
+	Assimp::Importer importer;
+	return importer.IsExtensionSupported(ext.c_str());
 }
 
 entt::entity makeMeshFromFile(rigkit::MEcs& ecs, const std::string& path,

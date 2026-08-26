@@ -2,8 +2,8 @@
   "name": "load",
   "version": "0.1.0",
   "license": "MIT",
-  "description": "rigAssimp hero — STL + OBJ into CMesh via Assimp, present with rigRender3D",
-  "window": { "width": 800, "height": 600, "title": "rigAssimp — load" },
+  "description": "rigAssimp hero - STL + OBJ into CMesh via Assimp, present with rigRender3D",
+  "window": { "width": 800, "height": 600, "title": "rigAssimp - load" },
   "dependencies": [
     {
       "name": "rigComponent",
