@@ -1,5 +1,6 @@
 #include "AssimpIO.h"
 
+#include "CAssetRef.h"
 #include "CTransform.h"
 #include "rig/create.h"
 
@@ -25,12 +26,89 @@ glm::vec4 diffuseColor(const aiMaterial* mat) {
 	return {c.r, c.g, c.b, c.a};
 }
 
+void readMaterial(const aiMaterial* mat, const std::filesystem::path& file, MaterialFile& out) {
+	out = {};
+	if (!mat) {
+		return;
+	}
+	bool gotAlbedo = false;
+#ifdef AI_MATKEY_BASE_COLOR
+	aiColor4D base(1.f, 1.f, 1.f, 1.f);
+	if (mat->Get(AI_MATKEY_BASE_COLOR, base) == AI_SUCCESS) {
+		out.material.albedoR = base.r;
+		out.material.albedoG = base.g;
+		out.material.albedoB = base.b;
+		out.present = true;
+		gotAlbedo = true;
+	}
+#endif
+	if (!gotAlbedo) {
+		aiColor4D diffuse(1.f, 1.f, 1.f, 1.f);
+		if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse) == AI_SUCCESS) {
+			out.material.albedoR = diffuse.r;
+			out.material.albedoG = diffuse.g;
+			out.material.albedoB = diffuse.b;
+			out.present = true;
+		}
+	}
+#ifdef AI_MATKEY_METALLIC_FACTOR
+	float metal = 0.f;
+	if (mat->Get(AI_MATKEY_METALLIC_FACTOR, metal) == AI_SUCCESS) {
+		out.material.metallic = metal;
+		out.present = true;
+	}
+#endif
+#ifdef AI_MATKEY_ROUGHNESS_FACTOR
+	float rough = 1.f;
+	if (mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, rough) == AI_SUCCESS) {
+		out.material.roughness = rough;
+		out.present = true;
+	}
+#endif
+	aiColor3D emissive(0.f, 0.f, 0.f);
+	if (mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS &&
+		(emissive.r > 1e-4f || emissive.g > 1e-4f || emissive.b > 1e-4f)) {
+		out.material.emissiveR = emissive.r;
+		out.material.emissiveG = emissive.g;
+		out.material.emissiveB = emissive.b;
+		out.present = true;
+	}
+
+	aiString tex;
+	bool gotTex = false;
+	if (mat->GetTexture(aiTextureType_BASE_COLOR, 0, &tex) == AI_SUCCESS) {
+		gotTex = true;
+	}
+	if (!gotTex && mat->GetTexture(aiTextureType_DIFFUSE, 0, &tex) == AI_SUCCESS) {
+		gotTex = true;
+	}
+	if (!gotTex || tex.length == 0) {
+		return;
+	}
+	const std::string raw = tex.C_Str();
+	if (raw.empty() || raw.front() == '*') {
+		return;
+	}
+	std::filesystem::path image(raw);
+	if (image.is_relative()) {
+		image = file.parent_path() / image;
+	}
+	out.albedoPath = image.lexically_normal().string();
+	out.present = true;
+}
+
 } // namespace
 
-IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
+IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh, MaterialFile* outMaterial) {
 	IoResult result;
 	outMesh = {};
 	outMesh.mode = rigkit::ecs::CMesh::Mode::Triangles;
+	if (outMaterial) {
+		*outMaterial = {};
+	}
+	MaterialFile firstMaterial;
+	bool haveMaterial = false;
+	const std::filesystem::path filePath(path);
 
 	Assimp::Importer importer;
 	const unsigned flags = aiProcess_Triangulate | aiProcess_PreTransformVertices |
@@ -63,6 +141,14 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 			mat = scene->mMaterials[mesh->mMaterialIndex];
 		}
 		const glm::vec4 faceCol = diffuseColor(mat);
+		if (!haveMaterial) {
+			MaterialFile one;
+			readMaterial(mat, filePath, one);
+			if (one.present) {
+				firstMaterial = std::move(one);
+				haveMaterial = true;
+			}
+		}
 		aiColor4D probe(1.f, 1.f, 1.f, 1.f);
 		if (mat && mat->Get(AI_MATKEY_COLOR_DIFFUSE, probe) == AI_SUCCESS) {
 			anyColor = true;
@@ -112,6 +198,9 @@ IoResult load(const std::string& path, rigkit::ecs::CMesh& outMesh) {
 	if (outMesh.positions.empty()) {
 		result.error = "Assimp scene contained no triangle faces";
 		return result;
+	}
+	if (outMaterial && haveMaterial) {
+		*outMaterial = std::move(firstMaterial);
 	}
 
 	result.ok = true;
@@ -167,7 +256,8 @@ entt::entity makeMeshFromFile(rigkit::MEcs& ecs, const std::string& path,
 							  const rigkit::ecs::CDrawStyle& style, const std::string& name,
 							  IoResult* outResult) {
 	rigkit::ecs::CMesh mesh;
-	IoResult loaded = load(path, mesh);
+	MaterialFile materialFile;
+	IoResult loaded = load(path, mesh, &materialFile);
 	if (outResult) {
 		*outResult = loaded;
 	}
@@ -185,6 +275,18 @@ entt::entity makeMeshFromFile(rigkit::MEcs& ecs, const std::string& path,
 	auto& stored = ecs.getComponent<rigkit::ecs::CMesh>(e);
 	stored.faceColors = std::move(mesh.faceColors);
 	stored.texcoords = std::move(mesh.texcoords);
+	if (materialFile.present) {
+		if (!materialFile.albedoPath.empty()) {
+			const std::string imageName = name.empty() ? "albedo" : name + "-albedo";
+			auto image = ecs.createEntity(imageName);
+			rigkit::ecs::CAssetRef ref;
+			ref.kind = rigkit::ecs::CAssetRef::Kind::Image;
+			ref.path = materialFile.albedoPath;
+			ecs.addComponent(image, ref);
+			materialFile.material.albedoMap = image;
+		}
+		ecs.addComponent(e, materialFile.material);
+	}
 	return e;
 }
 
